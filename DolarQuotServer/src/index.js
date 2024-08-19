@@ -2,14 +2,21 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const app = express();
-const path = require('path');
+const {Client} = require('pg');
 const axios = require('axios');
-const pool = require('./db');
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.text());
 app.use(express.json());
 
+const client = new Client({
+   host: 'localhost',
+   port: 5432,
+   user: 'postgres',
+   password: '1234',
+   database: 'teste1'
+})
+client.connect();
 app.use((req, res, next) => {
    console.log(`${req.method}:${req.url}`);
    next();
@@ -24,16 +31,29 @@ function passarData(req) {
    return [dia.toString(), mes.toString(), ano.toString()];
 }
 
+async function checkDB(dd, mm ,aaaa){
+   let date = `${aaaa}-${mm}-${dd}`
+   client.query('SELECT EXISTS (SELECT 1 FROM dollarvalue WHERE value = ?) AS value_exists', [date], (err, results) => {
+      if (err) {
+          return console.error('Erro ao executar a query: ' + err.stack);
+      }
+      
+      if (results[0].value_exists) {
+          console.log('O valor existe na tabela.');
+      } else {
+          console.log('O valor não existe na tabela.');
+      }
+  });
+   
+}
+
 app.post('/data', (req, res) => {
    let [dd, mm, aaaa] = passarData(req);
+   checkDB(dd,mm,aaaa);
    pegarDolar(dd, mm, aaaa);
+
    console.log(mm);
    res.sendStatus(200);
-});
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-   console.log(`Servidor rodando na porta ${port}`);
 });
 
 app.get('/testeget', async (req, res)=>{
@@ -46,31 +66,20 @@ app.get('/testeget', async (req, res)=>{
    }
    
 })
-app.post('/testepost', async (req, res)=>{
-   const { name, location} = req.body
+app.post('/testepost1', async (req, res)=>{
    try{
-      await pool.query('INSERT INTO schools(name,address) VALUES ($1, $2', [name, location]);
+      await client.query('INSERT INTO dollarvalue (date,value) VALUES ($1, $2)', ['1997-12-12', 5.4565]);
       res.status(200).send({message: "successfully added child"})
-   }catch (err){
-      console.log(err)
-      req.sendStatus(500)
-   }
-   
-})
-
-app.get('/setup', async (req, res) => {
-   try{
-      await pool.query('CREATE TABLE schools(id SERIAL PRIMARY KEY, name VARCHAR(100), address VARCHAR(100))');
-      res.status(200).send({message: "successfully created table"})
    }catch (err){
       console.log(err)
       res.sendStatus(500)
    }
+   
 })
 
-//https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao=%2707-03-2023%27&$top=100&$format=json
 
-//https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao=%27${dd}-${mm}-${aaaa}%27&$top=100&$format=json
+
+
 
 const pegarDolar = async (dd, mm, yyyy) => {
    try {
@@ -85,3 +94,16 @@ const pegarDolar = async (dd, mm, yyyy) => {
 
 //formato data na url
 //mm - dd - yyyy
+
+
+//https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao=%2707-03-2023%27&$top=100&$format=json
+
+//https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao=%27${dd}-${mm}-${aaaa}%27&$top=100&$format=json
+
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+   console.log(`Servidor rodando na porta ${port}`);
+});
+
+checkDB('29','04','2005')
