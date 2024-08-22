@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:latest
+FROM node
 WORKDIR /dolarquotserver
 COPY . .
 RUN rm -rf node_modules
